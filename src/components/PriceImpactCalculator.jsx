@@ -55,7 +55,11 @@ const PriceImpactCalculator = () => {
   const fetchQuote = async (amount) => {
     try {
       const chainId = 1; // Ethereum mainnet
-      const amountInWei = (amount * 1e18).toString(); // 假設 from token 是 18 decimals
+      
+      // 轉換為 Wei (18 decimals)，避免科學記數法
+      // 使用 BigInt 確保大數字轉換正確
+      const amountInWei = BigInt(Math.floor(amount)) * BigInt(10 ** 18);
+      const amountStr = amountInWei.toString();
 
       // 檢查是否配置了 Cloudflare Worker 代理
       const proxyUrl = "https://metamask-score-proxy.harry811016.workers.dev";
@@ -69,7 +73,7 @@ const PriceImpactCalculator = () => {
           params: {
             src: tokenFrom,
             dst: tokenTo,
-            amount: amountInWei,
+            amount: amountStr,
             chainId: chainId,
           },
         };
@@ -80,7 +84,7 @@ const PriceImpactCalculator = () => {
           params: {
             src: tokenFrom,
             dst: tokenTo,
-            amount: amountInWei,
+            amount: amountStr,
           },
         };
       } else {
