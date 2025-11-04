@@ -7,31 +7,32 @@ const PriceImpactCalculator = () => {
   const [error, setError] = useState(null);
   const [selectedAmount, setSelectedAmount] = useState(1000);
 
-  // Linea 鏈上的代幣地址
+  // Ethereum 主網代幣地址（1inch API 支持）
+  // 注意：1inch API 目前不支持 Linea 鏈
   const tokens = {
     ETH: {
       symbol: "ETH",
-      address: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
+      address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
       decimals: 18,
     },
     USDC: {
       symbol: "USDC",
-      address: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
       decimals: 6,
     },
     USDT: {
       symbol: "USDT",
-      address: "0xA219439258ca9da29E9Cc4cE5596924745e12B93",
+      address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       decimals: 6,
     },
     DAI: {
       symbol: "DAI",
-      address: "0x4AF15ec2A0BD43Db75dd04E62FAA3B8EF36b00d5",
+      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
       decimals: 18,
     },
     WBTC: {
       symbol: "WBTC",
-      address: "0x3aAB2285ddcDdaD8edf438C1bAB47e1a9D05a9b4",
+      address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
       decimals: 8,
     },
   };
@@ -55,7 +56,7 @@ const PriceImpactCalculator = () => {
 
   const fetchQuote = async (fromToken, toToken, amount) => {
     try {
-      const chainId = 59144; // Linea mainnet
+      const chainId = 1; // Ethereum mainnet (1inch API 支持)
 
       // 根據代幣 decimals 轉換金額
       const decimals = tokens[fromToken].decimals;
@@ -124,11 +125,11 @@ const PriceImpactCalculator = () => {
 
       setAllResults(results);
 
-      if (results.length === 0) {
-        setError(
-          "無法獲取任何交易對數據，請檢查網絡或稍後再試。Linea 鏈可能暫時不支持某些代幣。"
-        );
-      }
+        if (results.length === 0) {
+          setError(
+            "無法獲取任何交易對數據，請檢查網絡或稍後再試。"
+          );
+        }
     } catch (err) {
       setError("獲取報價時發生錯誤，請稍後再試。");
       console.error(err);
@@ -150,8 +151,11 @@ const PriceImpactCalculator = () => {
     <div className="bg-white rounded-2xl shadow-2xl p-8">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Linea 鏈常用交易對價格影響
+          以太坊常用交易對價格影響排名
         </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          ⚠️ 注意：1inch API 目前不支持 Linea 鏈，暫時使用 Ethereum 主網數據
+        </p>
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -294,7 +298,7 @@ const PriceImpactCalculator = () => {
               </li>
             </ul>
             <p className="text-xs text-blue-700 mt-2">
-              * 數據來自 Linea 鏈上的 1inch API
+              * 數據來自 Ethereum 主網的 1inch API
             </p>
           </div>
         </div>
