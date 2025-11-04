@@ -5,7 +5,7 @@
 **永遠不要在環境變量中存儲 API Key！**
 
 - ❌ 不要在 `.env` 文件中存儲 API Key
-- ❌ 不要在前端代碼中存儲 API Key  
+- ❌ 不要在前端代碼中存儲 API Key
 - ✅ 使用 Cloudflare Workers Secrets 存儲 API Key
 
 詳細說明請參考 `SECURITY.md`

@@ -50,11 +50,13 @@ Cloudflare Workers 是免費且快速的解決方案，非常適合靜態網站�
 ### 6. 測試 Worker
 
 1. 在 Worker 頁面可以看到你的 Worker URL：
+
    ```
    https://metamask-score-proxy.YOUR_USERNAME.workers.dev
    ```
 
 2. 測試 API（在瀏覽器或 Postman 中）：
+
    ```
    https://your-worker.workers.dev?src=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&dst=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&amount=100000000000000000000&chainId=1
    ```

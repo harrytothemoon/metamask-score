@@ -38,12 +38,13 @@ export default {
 
       // 從環境變量獲取 API key（使用 Cloudflare Workers Secrets）
       const apiKey = env.ONEINCH_API_KEY;
-      
+
       if (!apiKey) {
         return new Response(
-          JSON.stringify({ 
-            error: 'API key not configured. Please set ONEINCH_API_KEY in Worker secrets.' 
-          }), 
+          JSON.stringify({
+            error:
+              "API key not configured. Please set ONEINCH_API_KEY in Worker secrets.",
+          }),
           {
             status: 500,
             headers: {

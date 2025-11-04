@@ -58,7 +58,7 @@ const PriceImpactCalculator = () => {
       const amountInWei = (amount * 1e18).toString(); // 假設 from token 是 18 decimals
 
       // 檢查是否配置了 Cloudflare Worker 代理
-      const proxyUrl = import.meta.env.VITE_PROXY_URL;
+      const proxyUrl = "https://metamask-score-proxy.harry811016.workers.dev";
 
       let url, config;
 
