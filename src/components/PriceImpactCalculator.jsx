@@ -143,7 +143,7 @@ const PriceImpactCalculator = () => {
       setResults(processedResults);
     } catch (err) {
       const isDev = import.meta.env.DEV;
-      const hasProxy = import.meta.env.VITE_PROXY_URL;
+      const hasProxy = "https://metamask-score-proxy.harry811016.workers.dev";
 
       let errorMsg = "獲取報價時發生錯誤。";
 
