@@ -8,10 +8,10 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Setup Yarn
         run: |
@@ -28,7 +28,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          yarn config set registry https://registry.npmjs.org
           yarn install --frozen-lockfile
 
       - name: Build
@@ -39,4 +38,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-
