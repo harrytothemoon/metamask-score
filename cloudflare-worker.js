@@ -36,10 +36,28 @@ export default {
       // 構建 1inch API URL
       const apiUrl = `https://api.1inch.dev/swap/v5.2/${chainId}/quote?src=${src}&dst=${dst}&amount=${amount}`;
 
-      // 調用 1inch API（需要替換為你的實際 API key）
+      // 從環境變量獲取 API key（使用 Cloudflare Workers Secrets）
+      const apiKey = env.ONEINCH_API_KEY;
+      
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'API key not configured. Please set ONEINCH_API_KEY in Worker secrets.' 
+          }), 
+          {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      }
+
+      // 調用 1inch API
       const response = await fetch(apiUrl, {
         headers: {
-          Authorization: "Bearer YOUR_1INCH_API_KEY_HERE", // 替換為你的 API key
+          Authorization: `Bearer ${apiKey}`,
         },
       });
 

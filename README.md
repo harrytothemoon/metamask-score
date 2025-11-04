@@ -73,16 +73,20 @@ yarn deploy
 
 ## API 配置
 
-本應用使用 1inch API 來獲取實時報價。在生產環境中，你需要：
+本應用使用 1inch API 來獲取實時報價。
+
+### ⚠️ 重要：不要直接在代碼中寫 API Key！
+
+**正確做法**：使用 Cloudflare Workers + Secrets
 
 1. 前往 [1inch Developer Portal](https://portal.1inch.dev/) 註冊並獲取 API key
-2. 在 `src/components/PriceImpactCalculator.jsx` 中替換 `demo-key` 為你的實際 API key
+2. 按照 `CLOUDFLARE_SETUP.md` 設置 Cloudflare Worker
+3. 在 Cloudflare Workers 的 Settings → Variables and Secrets 中配置 `ONEINCH_API_KEY`
+4. API key 會被安全加密存儲
 
-```javascript
-headers: {
-  'Authorization': 'Bearer YOUR_API_KEY_HERE',
-}
-```
+詳細說明請參考：
+- 📚 `CLOUDFLARE_SETUP.md` - Worker 設置指南
+- 🔐 `SECURITY.md` - 安全最佳實踐（必讀）
 
 ## 價格影響說明
 

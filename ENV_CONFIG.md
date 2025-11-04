@@ -5,6 +5,7 @@
 開發環境會自動使用 Vite 代理，無需額外配置。
 
 只需運行：
+
 ```bash
 yarn dev
 ```
@@ -37,6 +38,7 @@ VITE_PROXY_URL=https://your-worker-name.your-username.workers.dev
 ## 快速測試
 
 ### 開發環境
+
 ```bash
 yarn dev
 # 訪問 http://localhost:5173
@@ -45,6 +47,7 @@ yarn dev
 ```
 
 ### 生產環境（需要 Cloudflare Worker）
+
 ```bash
 # 創建 .env.production.local 並配置 VITE_PROXY_URL
 yarn build
@@ -61,4 +64,3 @@ yarn preview
 3. **展示**：使用示範數據（當前默認）
 
 目前應用會在無法連接 API 時自動切換到示範數據模式，用戶體驗不會受影響。
-
