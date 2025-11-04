@@ -8,7 +8,6 @@ const PriceImpactCalculator = () => {
   const [selectedAmount, setSelectedAmount] = useState(1000);
 
   // Ethereum 主網代幣地址（1inch API 支持）
-  // 注意：1inch API 目前不支持 Linea 鏈
   const tokens = {
     ETH: {
       symbol: "ETH",
@@ -25,30 +24,16 @@ const PriceImpactCalculator = () => {
       address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       decimals: 6,
     },
-    DAI: {
-      symbol: "DAI",
-      address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-      decimals: 18,
-    },
-    WBTC: {
-      symbol: "WBTC",
-      address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-      decimals: 8,
-    },
   };
 
-  // 常用交易對列表
+  // 常用交易對列表（只包含 ETH, USDT, USDC）
   const tradingPairs = [
     { from: "ETH", to: "USDC" },
     { from: "ETH", to: "USDT" },
-    { from: "WBTC", to: "ETH" },
-    { from: "WBTC", to: "USDC" },
-    { from: "WBTC", to: "USDT" },
     { from: "USDC", to: "USDT" },
     { from: "USDT", to: "USDC" },
-    { from: "ETH", to: "DAI" },
-    { from: "DAI", to: "USDC" },
-    { from: "DAI", to: "USDT" },
+    { from: "USDC", to: "ETH" },
+    { from: "USDT", to: "ETH" },
   ];
 
   // 查詢金額選項
@@ -93,32 +78,55 @@ const PriceImpactCalculator = () => {
 
     try {
       const results = [];
+      const baseAmount = 100; // 基準金額用於計算價格影響
+
+      console.log("開始雙重查詢計算價格影響...");
 
       // 批量查詢所有交易對
       for (const pair of tradingPairs) {
-        const quote = await fetchQuote(pair.from, pair.to, selectedAmount);
+        console.log(`查詢 ${pair.from}→${pair.to}...`);
 
-        console.log(`Quote for ${pair.from}→${pair.to}:`, quote); // 調試用
+        // 第一次查詢：基準金額（$100）
+        const baseQuote = await fetchQuote(pair.from, pair.to, baseAmount);
 
-        if (quote && quote.toAmount) {
-          // 計算實際的 fromAmount（以 token decimals 為準）
+        // 第二次查詢：目標金額
+        const targetQuote = await fetchQuote(
+          pair.from,
+          pair.to,
+          selectedAmount
+        );
+
+        if (
+          baseQuote &&
+          targetQuote &&
+          baseQuote.toAmount &&
+          targetQuote.toAmount
+        ) {
           const fromDecimals = tokens[pair.from].decimals;
           const toDecimals = tokens[pair.to].decimals;
-          const fromAmount = selectedAmount * 10 ** fromDecimals;
 
-          // 計算價格（考慮代幣精度）
-          const toAmountNum = parseFloat(quote.toAmount) / 10 ** toDecimals;
-          const price = toAmountNum / selectedAmount;
+          // 計算基準價格（每 1 fromToken 能換多少 toToken）
+          const baseToAmount =
+            parseFloat(baseQuote.toAmount) / 10 ** toDecimals;
+          const basePrice = baseToAmount / baseAmount;
 
-          // 獲取價格影響
-          // 1inch swap API 會在 protocols 或其他字段中返回價格影響
-          let priceImpact = 0;
+          // 計算目標價格
+          const targetToAmount =
+            parseFloat(targetQuote.toAmount) / 10 ** toDecimals;
+          const targetPrice = targetToAmount / selectedAmount;
 
-          if (quote.estimatedPriceImpact !== undefined) {
-            priceImpact = parseFloat(quote.estimatedPriceImpact);
-          } else if (quote.priceImpact !== undefined) {
-            priceImpact = parseFloat(quote.priceImpact);
-          }
+          // 計算價格影響（價格變差的百分比）
+          // 負數 = 價格變好（有利）
+          // 正數 = 價格變差（不利）
+          const priceImpact = ((targetPrice - basePrice) / basePrice) * 100;
+
+          console.log(
+            `${pair.from}→${pair.to}: 基準價格=${basePrice.toFixed(
+              8
+            )}, 目標價格=${targetPrice.toFixed(8)}, 影響=${priceImpact.toFixed(
+              2
+            )}%`
+          );
 
           results.push({
             pair: `${pair.from} → ${pair.to}`,
@@ -126,10 +134,10 @@ const PriceImpactCalculator = () => {
             toToken: pair.to,
             amount: selectedAmount,
             priceImpact: priceImpact,
-            price: price.toFixed(8),
-            toAmount: quote.toAmount,
-            fromAmount: fromAmount.toString(),
-            estimatedGas: quote.gas || quote.estimatedGas || "N/A",
+            price: targetPrice.toFixed(8),
+            toAmount: targetQuote.toAmount,
+            fromAmount: (selectedAmount * 10 ** fromDecimals).toString(),
+            estimatedGas: targetQuote.gas || targetQuote.estimatedGas || "N/A",
           });
         }
       }
@@ -142,7 +150,7 @@ const PriceImpactCalculator = () => {
       if (results.length === 0) {
         setError("無法獲取任何交易對數據，請檢查網絡或稍後再試。");
       } else {
-        console.log(`成功獲取 ${results.length} 個交易對數據`);
+        console.log(`✅ 成功獲取 ${results.length} 個交易對的價格影響數據`);
       }
     } catch (err) {
       setError("獲取報價時發生錯誤，請稍後再試。");
@@ -202,7 +210,16 @@ const PriceImpactCalculator = () => {
 
         {loading && (
           <div className="mt-4 text-center text-gray-600">
-            <p>正在批量查詢 {tradingPairs.length} 個交易對，請稍候...</p>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+              <p>
+                正在計算 {tradingPairs.length} 個交易對的價格影響...
+                <br />
+                <span className="text-sm text-gray-500">
+                  （每個交易對查詢 2 次，約需 {tradingPairs.length * 2} 秒）
+                </span>
+              </p>
+            </div>
           </div>
         )}
       </div>
