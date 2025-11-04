@@ -96,12 +96,18 @@ const PriceImpactCalculator = () => {
       for (const pair of tradingPairs) {
         const quote = await fetchQuote(pair.from, pair.to, selectedAmount);
 
-        if (quote && quote.toAmount && quote.fromAmount) {
-          const price =
-            parseFloat(quote.toAmount) / parseFloat(quote.fromAmount);
+        console.log(`Quote for ${pair.from}→${pair.to}:`, quote); // 調試用
+
+        if (quote && quote.toAmount) {
+          // 計算實際的 fromAmount（以 token decimals 為準）
+          const fromDecimals = tokens[pair.from].decimals;
+          const fromAmount = selectedAmount * 10 ** fromDecimals;
+
+          // 計算價格（toAmount / fromAmount）
+          const price = parseFloat(quote.toAmount) / fromAmount;
 
           // 計算價格影響
-          // 1inch API 可能會返回 estimatedPriceImpact，如果沒有我們設為 0
+          // 1inch API 在 quote 端點可能不返回價格影響，我們簡化顯示
           const priceImpact = quote.estimatedPriceImpact
             ? parseFloat(quote.estimatedPriceImpact)
             : 0;
@@ -114,7 +120,7 @@ const PriceImpactCalculator = () => {
             priceImpact: priceImpact,
             price: price.toFixed(8),
             toAmount: quote.toAmount,
-            fromAmount: quote.fromAmount,
+            fromAmount: fromAmount.toString(),
             estimatedGas: quote.estimatedGas || "N/A",
           });
         }
@@ -125,11 +131,11 @@ const PriceImpactCalculator = () => {
 
       setAllResults(results);
 
-        if (results.length === 0) {
-          setError(
-            "無法獲取任何交易對數據，請檢查網絡或稍後再試。"
-          );
-        }
+      if (results.length === 0) {
+        setError("無法獲取任何交易對數據，請檢查網絡或稍後再試。");
+      } else {
+        console.log(`成功獲取 ${results.length} 個交易對數據`);
+      }
     } catch (err) {
       setError("獲取報價時發生錯誤，請稍後再試。");
       console.error(err);
