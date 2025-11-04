@@ -1,0 +1,62 @@
+🚀 快速部署到 GitHub Pages
+
+===== 步驟 1：提交代碼 =====
+git commit -m "Initial commit: 交易對價格影響查詢工具"
+
+===== 步驟 2：在 GitHub 創建倉庫 =====
+1. 登入 GitHub (https://github.com)
+2. 點擊右上角 "+" > "New repository"
+3. 倉庫名稱：metamask-score
+4. 設為 Public（必須，GitHub Pages 免費版需要公開）
+5. 不要勾選任何初始化選項
+6. 點擊 "Create repository"
+
+===== 步驟 3：推送代碼 =====
+# 替換 YOUR_USERNAME 為你的 GitHub 用戶名
+git remote add origin https://github.com/YOUR_USERNAME/metamask-score.git
+git branch -M main
+git push -u origin main
+
+===== 步驟 4：等待自動部署 =====
+1. 推送後，到 GitHub 倉庫頁面
+2. 點擊 "Actions" 標籤
+3. 等待工作流程運行完成（綠色勾勾）
+4. 大約需要 1-2 分鐘
+
+===== 步驟 5：配置 GitHub Pages =====
+1. 在倉庫頁面點擊 "Settings"
+2. 左側選單找到 "Pages"
+3. 在 "Source" 下拉選單選擇 "gh-pages" 分支
+4. 點擊 "Save"
+5. 等待幾秒鐘，頁面會顯示你的網站地址
+
+===== 步驟 6：訪問網站 =====
+網站地址：https://YOUR_USERNAME.github.io/metamask-score/
+
+===== 重要提醒 =====
+⚠️ 記得在 Settings > Actions > General 中：
+   - 確保 "Actions permissions" 已啟用
+   - "Workflow permissions" 設為 "Read and write permissions"
+
+⚠️ 如果倉庫名稱不是 metamask-score：
+   需要修改 vite.config.js 中的 base: '/你的倉庫名稱/'
+
+⚠️ 要獲取真實價格數據：
+   需要配置 1inch API key（請參考 README.md）
+
+===== 本地測試 =====
+在推送前先本地測試：
+yarn dev      # 開發模式
+yarn build    # 構建
+yarn preview  # 預覽構建結果
+
+===== 更新網站 =====
+每次修改後：
+git add .
+git commit -m "更新說明"
+git push
+
+GitHub Actions 會自動重新部署！
+
+祝使用愉快！🎉
+
