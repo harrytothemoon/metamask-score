@@ -29,21 +29,38 @@ const PriceImpactCalculator = () => {
       const chainId = 1; // Ethereum mainnet
       const amountInWei = (amount * 1e18).toString(); // 假設 from token 是 18 decimals
       
-      // 使用 1inch API v5
-      const url = `https://api.1inch.dev/swap/v5.2/${chainId}/quote`;
-      const params = {
-        src: tokenFrom,
-        dst: tokenTo,
-        amount: amountInWei,
-      };
+      // 檢查是否配置了 Cloudflare Worker 代理
+      const proxyUrl = import.meta.env.VITE_PROXY_URL;
+      
+      let url, config;
+      
+      if (proxyUrl) {
+        // 生產環境：使用 Cloudflare Worker 代理
+        url = proxyUrl;
+        config = {
+          params: {
+            src: tokenFrom,
+            dst: tokenTo,
+            amount: amountInWei,
+            chainId: chainId,
+          },
+        };
+      } else if (import.meta.env.DEV) {
+        // 開發環境：使用 Vite 代理
+        url = `/api/1inch/swap/v5.2/${chainId}/quote`;
+        config = {
+          params: {
+            src: tokenFrom,
+            dst: tokenTo,
+            amount: amountInWei,
+          },
+        };
+      } else {
+        // 無代理配置，直接拋出錯誤，使用示範數據
+        throw new Error('未配置代理服務器，請查看 CLOUDFLARE_SETUP.md');
+      }
 
-      const response = await axios.get(url, { 
-        params,
-        headers: {
-          'Authorization': 'Bearer demo-key', // 實際使用時需要替換為真實的 API key
-        }
-      });
-
+      const response = await axios.get(url, config);
       return response.data;
     } catch (err) {
       console.error(`Error fetching quote for $${amount}:`, err);
@@ -93,14 +110,49 @@ const PriceImpactCalculator = () => {
 
       setResults(processedResults);
     } catch (err) {
-      setError('獲取報價時發生錯誤，請稍後再試。可能需要配置 1inch API key。');
+      const isDev = import.meta.env.DEV;
+      const hasProxy = import.meta.env.VITE_PROXY_URL;
+      
+      let errorMsg = '獲取報價時發生錯誤。';
+      
+      if (!hasProxy && !isDev) {
+        errorMsg = '需要配置 Cloudflare Worker 代理才能獲取真實數據。請參考 CLOUDFLARE_SETUP.md 文件。';
+      } else {
+        errorMsg = '無法連接到 API，請稍後再試。';
+      }
+      
+      setError(errorMsg);
       console.error(err);
       
       // 顯示模擬數據
+      const fromToken = popularTokens.find(t => t.address === tokenFrom);
+      const toToken = popularTokens.find(t => t.address === tokenTo);
+      
       setResults([
-        { amount: 100, priceImpact: '0.05', price: 0.0003, estimatedGas: '150000', demo: true },
-        { amount: 1000, priceImpact: '0.42', price: 0.00031, estimatedGas: '150000', demo: true },
-        { amount: 10000, priceImpact: '3.85', price: 0.00033, estimatedGas: '150000', demo: true },
+        { 
+          amount: 100, 
+          priceImpact: '0.05', 
+          price: 0.0003, 
+          estimatedGas: '150000', 
+          demo: true,
+          pair: `${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`
+        },
+        { 
+          amount: 1000, 
+          priceImpact: '0.42', 
+          price: 0.00031, 
+          estimatedGas: '150000', 
+          demo: true,
+          pair: `${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`
+        },
+        { 
+          amount: 10000, 
+          priceImpact: '3.85', 
+          price: 0.00033, 
+          estimatedGas: '150000', 
+          demo: true,
+          pair: `${fromToken?.symbol || 'Token'} → ${toToken?.symbol || 'Token'}`
+        },
       ]);
     } finally {
       setLoading(false);
