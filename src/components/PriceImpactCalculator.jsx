@@ -65,12 +65,14 @@ const PriceImpactCalculator = () => {
 
       const proxyUrl = "https://metamask-score-proxy.harry811016.workers.dev";
 
+      // 使用 swap 端點而不是 quote，可以獲取更多信息包括價格影響
       const response = await axios.get(proxyUrl, {
         params: {
           src: tokens[fromToken].address,
           dst: tokens[toToken].address,
           amount: amountStr,
           chainId: chainId,
+          slippage: 1, // 1% 滑點容忍度
         },
       });
 
@@ -101,16 +103,22 @@ const PriceImpactCalculator = () => {
         if (quote && quote.toAmount) {
           // 計算實際的 fromAmount（以 token decimals 為準）
           const fromDecimals = tokens[pair.from].decimals;
+          const toDecimals = tokens[pair.to].decimals;
           const fromAmount = selectedAmount * 10 ** fromDecimals;
 
-          // 計算價格（toAmount / fromAmount）
-          const price = parseFloat(quote.toAmount) / fromAmount;
+          // 計算價格（考慮代幣精度）
+          const toAmountNum = parseFloat(quote.toAmount) / 10 ** toDecimals;
+          const price = toAmountNum / selectedAmount;
 
-          // 計算價格影響
-          // 1inch API 在 quote 端點可能不返回價格影響，我們簡化顯示
-          const priceImpact = quote.estimatedPriceImpact
-            ? parseFloat(quote.estimatedPriceImpact)
-            : 0;
+          // 獲取價格影響
+          // 1inch swap API 會在 protocols 或其他字段中返回價格影響
+          let priceImpact = 0;
+
+          if (quote.estimatedPriceImpact !== undefined) {
+            priceImpact = parseFloat(quote.estimatedPriceImpact);
+          } else if (quote.priceImpact !== undefined) {
+            priceImpact = parseFloat(quote.priceImpact);
+          }
 
           results.push({
             pair: `${pair.from} → ${pair.to}`,
@@ -121,7 +129,7 @@ const PriceImpactCalculator = () => {
             price: price.toFixed(8),
             toAmount: quote.toAmount,
             fromAmount: fromAmount.toString(),
-            estimatedGas: quote.estimatedGas || "N/A",
+            estimatedGas: quote.gas || quote.estimatedGas || "N/A",
           });
         }
       }

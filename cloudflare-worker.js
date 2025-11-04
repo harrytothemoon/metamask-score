@@ -33,9 +33,6 @@ export default {
         });
       }
 
-      // 構建 1inch API URL
-      const apiUrl = `https://api.1inch.dev/swap/v5.2/${chainId}/quote?src=${src}&dst=${dst}&amount=${amount}`;
-
       // 從環境變量獲取 API key（使用 Cloudflare Workers Secrets）
       const apiKey = env.ONEINCH_API_KEY;
 
@@ -55,8 +52,21 @@ export default {
         );
       }
 
+      // 構建 1inch API URL
+      // 使用 quote 端點，但添加所有可用參數以獲取更多信息
+      const apiUrl = new URL(`https://api.1inch.dev/swap/v5.2/${chainId}/quote`);
+      apiUrl.searchParams.append('src', src);
+      apiUrl.searchParams.append('dst', dst);
+      apiUrl.searchParams.append('amount', amount);
+      
+      // 如果有 slippage 參數，添加它
+      const slippage = url.searchParams.get('slippage');
+      if (slippage) {
+        apiUrl.searchParams.append('includeGas', 'true');
+      }
+
       // 調用 1inch API
-      const response = await fetch(apiUrl, {
+      const response = await fetch(apiUrl.toString(), {
         headers: {
           Authorization: `Bearer ${apiKey}`,
         },
