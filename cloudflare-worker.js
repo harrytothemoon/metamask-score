@@ -1,4 +1,4 @@
-// Cloudflare Worker 代理腳本
+// Cloudflare Worker 代理腳本 - KyberSwap API (Linea)
 // 部署到 Cloudflare Workers 來繞過 CORS 限制
 
 export default {
@@ -18,29 +18,54 @@ export default {
       const url = new URL(request.url);
 
       // 從查詢參數獲取目標 API 信息
-      const src = url.searchParams.get("src");
-      const dst = url.searchParams.get("dst");
-      const amount = url.searchParams.get("amount");
-      const chainId = url.searchParams.get("chainId") || "1";
+      const tokenIn = url.searchParams.get("tokenIn");
+      const tokenOut = url.searchParams.get("tokenOut");
+      const amountIn = url.searchParams.get("amountIn");
 
-      if (!src || !dst || !amount) {
-        return new Response(JSON.stringify({ error: "Missing parameters" }), {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        });
-      }
-
-      // 從環境變量獲取 API key（使用 Cloudflare Workers Secrets）
-      const apiKey = env.ONEINCH_API_KEY;
-
-      if (!apiKey) {
+      if (!tokenIn || !tokenOut || !amountIn) {
         return new Response(
           JSON.stringify({
-            error:
-              "API key not configured. Please set ONEINCH_API_KEY in Worker secrets.",
+            error: "Missing parameters",
+            required: ["tokenIn", "tokenOut", "amountIn"],
+          }),
+          {
+            status: 400,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          }
+        );
+      }
+
+      // 構建 KyberSwap API URL (Linea 鏈)
+      const kyberswapUrl = new URL(
+        "https://aggregator-api.kyberswap.com/linea/api/v1/routes"
+      );
+      kyberswapUrl.searchParams.append("tokenIn", tokenIn);
+      kyberswapUrl.searchParams.append("tokenOut", tokenOut);
+      kyberswapUrl.searchParams.append("amountIn", amountIn);
+      kyberswapUrl.searchParams.append("gasInclude", "true");
+      kyberswapUrl.searchParams.append("saveGas", "false");
+
+      console.log("Calling KyberSwap API:", kyberswapUrl.toString());
+
+      // 調用 KyberSwap API（無需 API Key）
+      const response = await fetch(kyberswapUrl.toString(), {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const kyberswapData = await response.json();
+
+      // 檢查 KyberSwap 返回是否成功
+      if (kyberswapData.code !== 0 || !kyberswapData.data) {
+        return new Response(
+          JSON.stringify({
+            error: "KyberSwap API error",
+            message: kyberswapData.message,
+            data: kyberswapData,
           }),
           {
             status: 500,
@@ -52,45 +77,62 @@ export default {
         );
       }
 
-      // 構建 1inch API URL
-      // 使用 quote 端點，但添加所有可用參數以獲取更多信息
-      const apiUrl = new URL(`https://api.1inch.dev/swap/v5.2/${chainId}/quote`);
-      apiUrl.searchParams.append('src', src);
-      apiUrl.searchParams.append('dst', dst);
-      apiUrl.searchParams.append('amount', amount);
-      
-      // 如果有 slippage 參數，添加它
-      const slippage = url.searchParams.get('slippage');
-      if (slippage) {
-        apiUrl.searchParams.append('includeGas', 'true');
-      }
+      // 提取關鍵數據
+      const routeSummary = kyberswapData.data.routeSummary;
 
-      // 調用 1inch API
-      const response = await fetch(apiUrl.toString(), {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
+      // 計算價格影響：(投入 USD - 得到 USD) / 投入 USD * 100
+      const amountInUsd = parseFloat(routeSummary.amountInUsd);
+      const amountOutUsd = parseFloat(routeSummary.amountOutUsd);
+      const priceImpact = ((amountInUsd - amountOutUsd) / amountInUsd) * 100;
+
+      // 轉換為與前端兼容的格式
+      const responseData = {
+        toAmount: routeSummary.amountOut,
+        fromAmount: routeSummary.amountIn,
+        priceImpact: priceImpact,
+        estimatedPriceImpact: priceImpact,
+        gas: routeSummary.gas,
+        gasPrice: routeSummary.gasPrice,
+        gasUsd: routeSummary.gasUsd,
+        route: routeSummary.route,
+        // 保留原始數據供調試
+        _raw: {
+          amountInUsd: routeSummary.amountInUsd,
+          amountOutUsd: routeSummary.amountOutUsd,
+          exchange: routeSummary.route?.[0]?.[0]?.exchange || "kyberswap",
         },
+      };
+
+      console.log("Price Impact Calculation:", {
+        amountInUsd,
+        amountOutUsd,
+        priceImpact: priceImpact.toFixed(4) + "%",
       });
 
-      const data = await response.json();
-
       // 返回結果，添加 CORS 標頭
-      return new Response(JSON.stringify(data), {
-        status: response.status,
+      return new Response(JSON.stringify(responseData), {
+        status: 200,
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "public, max-age=60", // 緩存 1 分鐘
+          "Cache-Control": "public, max-age=30", // 緩存 30 秒
         },
       });
     } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
+      console.error("Worker error:", error);
+      return new Response(
+        JSON.stringify({
+          error: error.message,
+          stack: error.stack,
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
     }
   },
 };

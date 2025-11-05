@@ -7,21 +7,21 @@ const PriceImpactCalculator = () => {
   const [error, setError] = useState(null);
   const [selectedAmount, setSelectedAmount] = useState(1000);
 
-  // Ethereum 主網代幣地址（1inch API 支持）
+  // Linea 鏈代幣地址（KyberSwap API 支持）
   const tokens = {
     ETH: {
       symbol: "ETH",
-      address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      address: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f", // WETH on Linea
       decimals: 18,
     },
     USDC: {
       symbol: "USDC",
-      address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      address: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", // USDC on Linea
       decimals: 6,
     },
     USDT: {
       symbol: "USDT",
-      address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      address: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", // USDT on Linea
       decimals: 6,
     },
   };
@@ -41,23 +41,19 @@ const PriceImpactCalculator = () => {
 
   const fetchQuote = async (fromToken, toToken, amount) => {
     try {
-      const chainId = 1; // Ethereum mainnet (1inch API 支持)
-
-      // 根據代幣 decimals 轉換金額
+      // 根據代幣 decimals 轉換金額為 wei
       const decimals = tokens[fromToken].decimals;
       const amountInWei = BigInt(Math.floor(amount)) * BigInt(10 ** decimals);
       const amountStr = amountInWei.toString();
 
       const proxyUrl = "https://metamask-score-proxy.harry811016.workers.dev";
 
-      // 使用 swap 端點而不是 quote，可以獲取更多信息包括價格影響
+      // 使用 KyberSwap API（通過 Cloudflare Worker 代理）
       const response = await axios.get(proxyUrl, {
         params: {
-          src: tokens[fromToken].address,
-          dst: tokens[toToken].address,
-          amount: amountStr,
-          chainId: chainId,
-          slippage: 1, // 1% 滑點容忍度
+          tokenIn: tokens[fromToken].address,
+          tokenOut: tokens[toToken].address,
+          amountIn: amountStr,
         },
       });
 
@@ -78,54 +74,32 @@ const PriceImpactCalculator = () => {
 
     try {
       const results = [];
-      const baseAmount = 100; // 基準金額用於計算價格影響
 
-      console.log("開始雙重查詢計算價格影響...");
+      console.log("開始查詢 Linea 鏈上的交易對數據（KyberSwap）...");
 
       // 批量查詢所有交易對
       for (const pair of tradingPairs) {
-        console.log(`查詢 ${pair.from}→${pair.to}...`);
+        console.log(`查詢 ${pair.from}→${pair.to} ($${selectedAmount})...`);
 
-        // 第一次查詢：基準金額（$100）
-        const baseQuote = await fetchQuote(pair.from, pair.to, baseAmount);
+        // 查詢目標金額的報價
+        const quote = await fetchQuote(pair.from, pair.to, selectedAmount);
 
-        // 第二次查詢：目標金額
-        const targetQuote = await fetchQuote(
-          pair.from,
-          pair.to,
-          selectedAmount
-        );
-
-        if (
-          baseQuote &&
-          targetQuote &&
-          baseQuote.toAmount &&
-          targetQuote.toAmount
-        ) {
+        if (quote && quote.toAmount) {
           const fromDecimals = tokens[pair.from].decimals;
           const toDecimals = tokens[pair.to].decimals;
 
-          // 計算基準價格（每 1 fromToken 能換多少 toToken）
-          const baseToAmount =
-            parseFloat(baseQuote.toAmount) / 10 ** toDecimals;
-          const basePrice = baseToAmount / baseAmount;
+          // 計算價格（每 1 fromToken 能換多少 toToken）
+          const toAmountNum = parseFloat(quote.toAmount) / 10 ** toDecimals;
+          const price = toAmountNum / selectedAmount;
 
-          // 計算目標價格
-          const targetToAmount =
-            parseFloat(targetQuote.toAmount) / 10 ** toDecimals;
-          const targetPrice = targetToAmount / selectedAmount;
-
-          // 計算價格影響（價格變差的百分比）
-          // 負數 = 價格變好（有利）
-          // 正數 = 價格變差（不利）
-          const priceImpact = ((targetPrice - basePrice) / basePrice) * 100;
+          // KyberSwap Worker 已經計算好價格影響（基於 USD 價格）
+          const priceImpact = quote.priceImpact || quote.estimatedPriceImpact || 0;
 
           console.log(
-            `${pair.from}→${pair.to}: 基準價格=${basePrice.toFixed(
-              8
-            )}, 目標價格=${targetPrice.toFixed(8)}, 影響=${priceImpact.toFixed(
-              2
-            )}%`
+            `${pair.from}→${pair.to}: 價格=${price.toFixed(8)}, 影響=${priceImpact.toFixed(2)}%`,
+            quote._raw
+              ? `(投入=$${quote._raw.amountInUsd}, 得到=$${quote._raw.amountOutUsd})`
+              : ""
           );
 
           results.push({
@@ -134,10 +108,12 @@ const PriceImpactCalculator = () => {
             toToken: pair.to,
             amount: selectedAmount,
             priceImpact: priceImpact,
-            price: targetPrice.toFixed(8),
-            toAmount: targetQuote.toAmount,
+            price: price.toFixed(8),
+            toAmount: quote.toAmount,
             fromAmount: (selectedAmount * 10 ** fromDecimals).toString(),
-            estimatedGas: targetQuote.gas || targetQuote.estimatedGas || "N/A",
+            estimatedGas: quote.gas || "N/A",
+            gasUsd: quote.gasUsd || "N/A",
+            exchange: quote._raw?.exchange || "KyberSwap",
           });
         }
       }
@@ -150,7 +126,9 @@ const PriceImpactCalculator = () => {
       if (results.length === 0) {
         setError("無法獲取任何交易對數據，請檢查網絡或稍後再試。");
       } else {
-        console.log(`✅ 成功獲取 ${results.length} 個交易對的價格影響數據`);
+        console.log(
+          `✅ 成功獲取 ${results.length} 個交易對的價格影響數據 (Linea 鏈)`
+        );
       }
     } catch (err) {
       setError("獲取報價時發生錯誤，請稍後再試。");
@@ -172,11 +150,14 @@ const PriceImpactCalculator = () => {
   return (
     <div className="bg-white rounded-2xl shadow-2xl p-8">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          以太坊常用交易對價格影響排名
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          Linea 鏈 DEX 價格影響排名
         </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          ⚠️ 注意：1inch API 目前不支持 Linea 鏈，暫時使用 Ethereum 主網數據
+        <p className="text-sm text-purple-600 mb-2">
+          📊 數據來源：KyberSwap 聚合器（與 MetaMask 小狐狸一致）
+        </p>
+        <p className="text-xs text-gray-500 mb-4">
+          查詢 Linea 鏈上 ETH/USDT/USDC 交易對的真實價格影響
         </p>
 
         <div className="mb-6">
@@ -213,10 +194,10 @@ const PriceImpactCalculator = () => {
             <div className="flex items-center justify-center space-x-2">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
               <p>
-                正在計算 {tradingPairs.length} 個交易對的價格影響...
+                正在查詢 Linea 鏈上 {tradingPairs.length} 個交易對...
                 <br />
                 <span className="text-sm text-gray-500">
-                  （每個交易對查詢 2 次，約需 {tradingPairs.length * 2} 秒）
+                  （使用 KyberSwap 聚合器，約需 {tradingPairs.length} 秒）
                 </span>
               </p>
             </div>
