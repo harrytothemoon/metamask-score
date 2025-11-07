@@ -50,10 +50,14 @@ export default {
 
       console.log("Calling KyberSwap API:", kyberswapUrl.toString());
 
-      // 調用 KyberSwap API（無需 API Key）
+      // 調用 KyberSwap API（添加瀏覽器請求頭繞過 Cloudflare 保護）
       const response = await fetch(kyberswapUrl.toString(), {
         headers: {
-          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Origin": "https://kyberswap.com",
+          "Referer": "https://kyberswap.com/",
+          "Accept-Language": "en-US,en;q=0.9",
         },
       });
 
